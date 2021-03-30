@@ -4,16 +4,15 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"github.com/jordan-wright/email"
 	"io/ioutil"
 	"log"
 	"net/http"
 	"net/url"
 	"path/filepath"
-
 	"strings"
 
 	"github.com/PuerkitoBio/goquery"
+	"github.com/gonejack/email"
 )
 
 type HTMLToEmail struct {
