@@ -2,16 +2,19 @@ package cmd
 
 import (
 	"bytes"
+	"crypto/md5"
 	"errors"
 	"fmt"
 	"io/ioutil"
 	"log"
 	"net/http"
 	"net/url"
+	"os"
 	"path/filepath"
 	"strings"
 
 	"github.com/PuerkitoBio/goquery"
+	"github.com/gabriel-vasile/mimetype"
 	"github.com/gonejack/email"
 )
 
@@ -50,63 +53,86 @@ func (h *HTMLToEmail) processHTML(path string) (err error) {
 		return err
 	}
 
+	mail := email.NewEmail()
 	doc, err := goquery.NewDocumentFromReader(bytes.NewReader(data))
 	if err != nil {
 		return
 	}
-
 	doc = h.cleanDoc(doc)
 
+	cids := make(map[string]string)
 	doc.Find("img, script, link").Each(func(i int, selection *goquery.Selection) {
-		var link string
-
 		var attr string
-		switch selection.Get(0).Data {
-		case "link":
-			attr = "href"
-		default:
-			attr = "src"
+		{
+			switch selection.Get(0).Data {
+			case "link":
+				attr = "href"
+			default:
+				attr = "src"
+			}
+		}
+		reference, _ := selection.Attr(attr)
+
+		if reference == "" {
+			return
 		}
 
-		link, _ = selection.Attr(attr)
-		if link == "" {
+		if !strings.HasPrefix(reference, "http") {
+			_, exist := cids[reference]
+			if !exist {
+				localRef := reference
+				fd, err := os.Open(localRef)
+				if err != nil {
+					localRef, _ = url.QueryUnescape(localRef)
+					fd, err = os.Open(localRef)
+				}
+				if err == nil {
+					fmime, err := mimetype.DetectFile(localRef)
+					if err != nil {
+						log.Printf("cannot detect image mime of %s: %s", path, err)
+						return
+					}
+					cid := md5str(reference) + fmime.Extension()
+					attachment, err := mail.Attach(fd, cid, fmime.String())
+					if err != nil {
+						log.Printf("cannot attach %s: %s", fd.Name(), err)
+						return
+					}
+					attachment.HTMLRelated = true
+					cids[reference] = cid
+				}
+			}
+		}
+
+		cid, exist := cids[reference]
+		if exist {
+			selection.SetAttr(attr, fmt.Sprintf("cid:%s", cid))
 			return
 		}
 
-		fixed, err := h.fixLink(link)
-		if err != nil {
+		fixed, err := h.fixLink(reference)
+		if err == nil {
+			selection.SetAttr(attr, fixed)
 			return
 		}
-		selection.SetAttr(attr, fixed)
-	})
-	doc.Find("link").Each(func(i int, selection *goquery.Selection) {
-		ref, _ := selection.Attr("href")
-		if ref == "" {
-			return
-		}
-		fixed, err := h.fixLink(ref)
-		if err != nil {
-			return
-		}
-		selection.SetAttr("href", fixed)
+
+		log.Printf("cannot process reference %s", reference)
 	})
 
 	html, err := doc.Html()
-	mail := email.NewEmail()
-	{
-		mail.From = h.From
-		mail.To = []string{h.To}
-		mail.Subject = doc.Find("title").Text()
-		mail.HTML = []byte(html)
-	}
+	mail.From = h.From
+	mail.To = []string{h.To}
+	mail.Subject = doc.Find("title").Text()
+	mail.HTML = []byte(html)
 
-	output := strings.TrimSuffix(path, filepath.Ext(path)) + ".eml"
 	content, err := mail.Bytes()
 	if err != nil {
 		return fmt.Errorf("cannot generate email: %w", err)
 	}
 
-	return ioutil.WriteFile(output, content, 0766)
+	target := strings.TrimSuffix(path, filepath.Ext(path)) + ".eml"
+
+	return ioutil.WriteFile(target, content, 0766)
 }
 func (_ *HTMLToEmail) cleanDoc(doc *goquery.Document) *goquery.Document {
 	// remove inoreader ads
@@ -123,7 +149,11 @@ func (h *HTMLToEmail) fixLink(link string) (string, error) {
 		return "", err
 	}
 	if u.Scheme == "" {
-		u.Scheme = "https"
+		u.Scheme = "http"
 	}
 	return u.String(), nil
+}
+
+func md5str(s string) string {
+	return fmt.Sprintf("%x", md5.Sum([]byte(s)))
 }
