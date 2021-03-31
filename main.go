@@ -11,7 +11,7 @@ import (
 var (
 	from    string
 	to      string
-	verbose = false
+	verbose bool
 
 	prog = &cobra.Command{
 		Use:   "html-to-email *.mht",

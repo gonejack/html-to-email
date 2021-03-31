@@ -89,7 +89,7 @@ func (h *HTMLToEmail) processHTML(path string) (err error) {
 				if err == nil {
 					fmime, err := mimetype.DetectFile(localRef)
 					if err != nil {
-						log.Printf("cannot detect image mime of %s: %s", path, err)
+						log.Printf("cannot detect mime of %s: %s", path, err)
 						return
 					}
 					cid := md5str(reference) + fmime.Extension()
