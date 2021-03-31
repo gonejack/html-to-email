@@ -14,7 +14,7 @@ var (
 	verbose bool
 
 	prog = &cobra.Command{
-		Use:   "html-to-email *.mht",
+		Use:   "html-to-email *.html",
 		Short: "Command line tool for converting html to email.",
 		Run: func(c *cobra.Command, args []string) {
 			err := run(c, args)

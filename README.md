@@ -16,7 +16,7 @@ Convert HTML to email
 ```
 ```
 Usage:
-  html-to-email *.mht [flags]
+  html-to-email *.html [flags]
 
 Flags:
   -f, --from string   set From field
