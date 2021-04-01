@@ -118,6 +118,10 @@ func (h *HTMLToEmail) processHTML(path string) (err error) {
 
 		log.Printf("cannot process reference %s", reference)
 	})
+	doc.Find("iframe").Each(func(i int, iframe *goquery.Selection) {
+		src, _ := iframe.Attr("src")
+		iframe.ReplaceWithHtml(fmt.Sprintf(`<a href="%s">%s</a>`, src, src))
+	})
 
 	html, err := doc.Html()
 	mail.From = h.From
