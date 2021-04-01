@@ -67,6 +67,10 @@ func (h *HTMLToEmail) processHTML(path string) (err error) {
 			switch selection.Get(0).Data {
 			case "link":
 				attr = "href"
+			case "img":
+				attr = "src"
+				selection.RemoveAttr("loading")
+				selection.RemoveAttr("srcset")
 			default:
 				attr = "src"
 			}
