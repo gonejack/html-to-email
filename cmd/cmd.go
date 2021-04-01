@@ -58,7 +58,6 @@ func (h *HTMLToEmail) processHTML(path string) (err error) {
 	if err != nil {
 		return
 	}
-	doc = h.cleanDoc(doc)
 
 	cids := make(map[string]string)
 	doc.Find("img, script, link").Each(func(i int, selection *goquery.Selection) {
@@ -141,12 +140,6 @@ func (h *HTMLToEmail) processHTML(path string) (err error) {
 	target := strings.TrimSuffix(path, filepath.Ext(path)) + ".eml"
 
 	return ioutil.WriteFile(target, content, 0766)
-}
-func (_ *HTMLToEmail) cleanDoc(doc *goquery.Document) *goquery.Document {
-	// remove inoreader ads
-	doc.Find("body").Find(`div:contains("ads from inoreader")`).Closest("center").Remove()
-
-	return doc
 }
 func (h *HTMLToEmail) fixLink(link string) (string, error) {
 	u, err := url.Parse(link)
