@@ -47,13 +47,16 @@ func (h *HTMLToEmail) Run(htmlList []string) (err error) {
 
 	return
 }
-func (h *HTMLToEmail) processHTML(path string) (err error) {
-	data, err := ioutil.ReadFile(path)
+func (h *HTMLToEmail) processHTML(html string) (err error) {
+	data, err := ioutil.ReadFile(html)
 	if err != nil {
 		return err
 	}
 
 	mail := email.NewEmail()
+	mail.From = h.From
+	mail.To = []string{h.To}
+
 	doc, err := goquery.NewDocumentFromReader(bytes.NewReader(data))
 	if err != nil {
 		return
@@ -62,90 +65,74 @@ func (h *HTMLToEmail) processHTML(path string) (err error) {
 	cids := make(map[string]string)
 	doc.Find("img, script, link").Each(func(i int, selection *goquery.Selection) {
 		var attr string
-		{
-			switch selection.Get(0).Data {
-			case "link":
-				attr = "href"
-			case "img":
-				attr = "src"
-				selection.RemoveAttr("loading")
-				selection.RemoveAttr("srcset")
-			default:
-				attr = "src"
-			}
+		switch selection.Get(0).Data {
+		case "link":
+			attr = "href"
+		case "img":
+			attr = "src"
+			selection.RemoveAttr("loading")
+			selection.RemoveAttr("srcset")
+		default:
+			attr = "src"
 		}
-		reference, _ := selection.Attr(attr)
 
-		if reference == "" {
+		ref, _ := selection.Attr(attr)
+		switch {
+		case ref == "":
 			return
-		}
-
-		if !strings.HasPrefix(reference, "http") {
-			_, exist := cids[reference]
-			if !exist {
-				localRef := reference
-				fd, err := os.Open(localRef)
-				if err != nil {
-					localRef, _ = url.QueryUnescape(localRef)
-					fd, err = os.Open(localRef)
-				}
-				if err == nil {
-					fmime, err := mimetype.DetectFile(localRef)
-					if err != nil {
-						log.Printf("cannot detect mime of %s: %s", path, err)
-						return
-					}
-					cid := md5str(reference) + fmime.Extension()
-					attachment, err := mail.Attach(fd, cid, fmime.String())
-					if err != nil {
-						log.Printf("cannot attach %s: %s", fd.Name(), err)
-						return
-					}
-					attachment.HTMLRelated = true
-					cids[reference] = cid
-				}
+		case strings.HasPrefix(ref, "http://"):
+			fallthrough
+		case strings.HasPrefix(ref, "https://"):
+			patched, err := h.patchReference(ref)
+			if err != nil {
+				log.Printf("cannot process reference %s", ref)
+				return
 			}
-		}
+			selection.SetAttr(attr, patched)
+		default:
+			cid, exist := cids[ref]
+			if exist {
+				selection.SetAttr(attr, fmt.Sprintf("cid:%s", cid))
+				return
+			}
 
-		cid, exist := cids[reference]
-		if exist {
+			cid, err := h.attachLocalFile(mail, ref)
+			if err != nil {
+				log.Printf("cannot attach %s: %s", ref, err)
+				return
+			}
+			cids[ref] = cid
+
 			selection.SetAttr(attr, fmt.Sprintf("cid:%s", cid))
-			return
 		}
-
-		fixed, err := h.fixLink(reference)
-		if err == nil {
-			selection.SetAttr(attr, fixed)
-			return
-		}
-
-		log.Printf("cannot process reference %s", reference)
 	})
 	doc.Find("iframe").Each(func(i int, iframe *goquery.Selection) {
 		src, _ := iframe.Attr("src")
-		iframe.ReplaceWithHtml(fmt.Sprintf(`<a href="%s">%s</a>`, src, src))
+		if src == "" {
+			iframe.Remove()
+		} else {
+			iframe.ReplaceWithHtml(fmt.Sprintf(`<a href="%s">%s</a>`, src, src))
+		}
 	})
 
-	html, err := doc.Html()
-	mail.From = h.From
-	mail.To = []string{h.To}
+	htm, err := doc.Html()
 	mail.Subject = doc.Find("title").Text()
-	mail.HTML = []byte(html)
+	mail.HTML = []byte(htm)
 
 	content, err := mail.Bytes()
 	if err != nil {
 		return fmt.Errorf("cannot generate email: %w", err)
 	}
 
-	target := strings.TrimSuffix(path, filepath.Ext(path)) + ".eml"
+	target := strings.TrimSuffix(html, filepath.Ext(html)) + ".eml"
 
 	return ioutil.WriteFile(target, content, 0766)
 }
-func (h *HTMLToEmail) fixLink(link string) (string, error) {
-	u, err := url.Parse(link)
+func (h *HTMLToEmail) patchReference(ref string) (string, error) {
+	u, err := url.Parse(ref)
 	if err != nil {
 		if h.Verbose {
-			log.Printf("cannot parse link %s", link)
+			log.Printf("cannot parse reference %s", ref)
 		}
 		return "", err
 	}
@@ -153,6 +140,30 @@ func (h *HTMLToEmail) fixLink(link string) (string, error) {
 		u.Scheme = "http"
 	}
 	return u.String(), nil
+}
+func (h *HTMLToEmail) attachLocalFile(mail *email.Email, ref string) (cid string, err error) {
+	localRef := ref
+	fd, err := os.Open(localRef)
+	if err != nil {
+		localRef, _ = url.QueryUnescape(localRef)
+		fd, err = os.Open(localRef)
+	}
+	if err != nil {
+		return
+	}
+
+	fmime, err := mimetype.DetectFile(localRef)
+	if err != nil {
+		return
+	}
+	cid = md5str(ref) + fmime.Extension()
+	attachment, err := mail.Attach(fd, cid, fmime.String())
+	if err != nil {
+		return
+	}
+	attachment.HTMLRelated = true
+
+	return
 }
 
 func md5str(s string) string {
