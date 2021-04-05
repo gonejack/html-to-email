@@ -63,7 +63,7 @@ func (h *HTMLToEmail) processHTML(html string) (err error) {
 	}
 
 	cids := make(map[string]string)
-	doc.Find("img, script, link").Each(func(i int, selection *goquery.Selection) {
+	doc.Find("img, link").Each(func(i int, selection *goquery.Selection) {
 		var attr string
 		switch selection.Get(0).Data {
 		case "link":
@@ -113,6 +113,9 @@ func (h *HTMLToEmail) processHTML(html string) (err error) {
 		} else {
 			iframe.ReplaceWithHtml(fmt.Sprintf(`<a href="%s">%s</a>`, src, src))
 		}
+	})
+	doc.Find("script").Each(func(i int, script *goquery.Selection) {
+		script.Remove()
 	})
 
 	htm, err := doc.Html()
