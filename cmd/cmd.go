@@ -29,9 +29,6 @@ type HTMLToEmail struct {
 
 func (h *HTMLToEmail) Run(htmlList []string) (err error) {
 	if len(htmlList) == 0 {
-		htmlList, _ = filepath.Glob("*.html")
-	}
-	if len(htmlList) == 0 {
 		return errors.New("no HTML files given")
 	}
 
@@ -48,6 +45,13 @@ func (h *HTMLToEmail) Run(htmlList []string) (err error) {
 	return
 }
 func (h *HTMLToEmail) processHTML(html string) (err error) {
+	target := strings.TrimSuffix(html, filepath.Ext(html)) + ".eml"
+
+	if s, e := os.Stat(target); e == nil && s.Size() > 0 {
+		log.Printf("%s skipped", html)
+		return
+	}
+
 	data, err := ioutil.ReadFile(html)
 	if err != nil {
 		return err
@@ -126,8 +130,6 @@ func (h *HTMLToEmail) processHTML(html string) (err error) {
 	if err != nil {
 		return fmt.Errorf("cannot generate email: %w", err)
 	}
-
-	target := strings.TrimSuffix(html, filepath.Ext(html)) + ".eml"
 
 	return ioutil.WriteFile(target, content, 0766)
 }

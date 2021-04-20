@@ -3,6 +3,7 @@ package main
 import (
 	"log"
 	"os"
+	"path/filepath"
 
 	"github.com/gonejack/html-to-email/cmd"
 	"github.com/spf13/cobra"
@@ -43,6 +44,10 @@ func run(c *cobra.Command, args []string) error {
 		From:    from,
 		To:      to,
 		Verbose: verbose,
+	}
+
+	if len(args) == 0 {
+		args, _ = filepath.Glob("*.html")
 	}
 
 	return exec.Run(args)
