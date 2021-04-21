@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
-	"net/http"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -19,8 +18,6 @@ import (
 )
 
 type HTMLToEmail struct {
-	client http.Client
-
 	From string
 	To   string
 
