@@ -103,6 +103,7 @@ func (h *HTMLToEmail) attachLocalFile(mail *email.Email, ref string) (cid string
 	if err != nil {
 		return
 	}
+	defer fd.Close()
 
 	fmime, err := mimetype.DetectFile(localRef)
 	if err != nil {
