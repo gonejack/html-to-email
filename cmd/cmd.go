@@ -57,6 +57,7 @@ func (h *HTMLToEmail) process(html string) (err error) {
 	if err != nil {
 		return
 	}
+	doc = h.cleanDoc(doc)
 
 	mail := email.NewEmail()
 	{
@@ -194,6 +195,15 @@ func (h *HTMLToEmail) setAttachments(doc *goquery.Document, mail *email.Email) {
 	doc.Find("script").Each(func(i int, script *goquery.Selection) {
 		script.Remove()
 	})
+}
+func (_ *HTMLToEmail) cleanDoc(doc *goquery.Document) *goquery.Document {
+	// remove inoreader ads
+	doc.Find("body").Find(`div:contains("ads from inoreader")`).Closest("center").Remove()
+
+	// remove solidot.org ads
+	doc.Find("img[src='https://img.solidot.org//0/446/liiLIZF8Uh6yM.jpg']").Remove()
+
+	return doc
 }
 
 func md5str(s string) string {
