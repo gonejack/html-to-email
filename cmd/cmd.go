@@ -155,6 +155,8 @@ func (h *HTMLToEmail) setAttachments(doc *goquery.Document, mail *email.Email) {
 		switch {
 		case ref == "":
 			return
+		case strings.HasPrefix(ref, "data:"):
+			return
 		case strings.HasPrefix(ref, "http://"):
 			fallthrough
 		case strings.HasPrefix(ref, "https://"):
