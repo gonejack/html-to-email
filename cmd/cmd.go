@@ -97,7 +97,7 @@ func (h *HTMLToEmail) attachLocalFile(mail *email.Email, ref string) (cid string
 	localRef := ref
 	fd, err := os.Open(localRef)
 	if err != nil {
-		localRef, _ = url.QueryUnescape(localRef)
+		localRef, _ = url.PathUnescape(localRef)
 		fd, err = os.Open(localRef)
 	}
 	if err != nil {
