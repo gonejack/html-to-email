@@ -65,7 +65,7 @@ func (h *HTMLToEmail) process(html string) (err error) {
 		mail.To = []string{h.To}
 		mail.Subject = doc.Find("title").Text()
 		h.setDate(html, doc, mail)
-		h.setAttachments(doc, mail)
+		h.setAttachments(html, doc, mail)
 	}
 
 	htm, err := doc.Html()
@@ -94,19 +94,14 @@ func (h *HTMLToEmail) patchReference(ref string) (string, error) {
 	}
 	return u.String(), nil
 }
-func (h *HTMLToEmail) attachLocalFile(mail *email.Email, ref string) (cid string, err error) {
-	localRef := ref
-	fd, err := os.Open(localRef)
-	if err != nil {
-		localRef, _ = url.PathUnescape(localRef)
-		fd, err = os.Open(localRef)
-	}
+func (h *HTMLToEmail) attachLocalFile(htmlFile string, mail *email.Email, ref string) (cid string, err error) {
+	fd, err := h.openLocalFile(htmlFile, ref)
 	if err != nil {
 		return
 	}
 	defer fd.Close()
 
-	fmime, err := mimetype.DetectFile(localRef)
+	fmime, err := mimetype.DetectFile(fd.Name())
 	if err != nil {
 		return
 	}
@@ -116,6 +111,31 @@ func (h *HTMLToEmail) attachLocalFile(mail *email.Email, ref string) (cid string
 		return
 	}
 	attachment.HTMLRelated = true
+
+	return
+}
+func (h *HTMLToEmail) openLocalFile(htmlFile string, ref string) (fd *os.File, err error) {
+	fd, err = os.Open(ref)
+	if err == nil {
+		return
+	}
+
+	// compatible with evernote's exported htmls
+	{
+		prefix := strings.TrimSuffix(htmlFile, filepath.Ext(htmlFile))
+		name := filepath.Base(ref)
+		fd, err = os.Open(filepath.Join(prefix+"_files", name))
+		if err == nil {
+			return
+		}
+		fd, err = os.Open(filepath.Join(prefix+".resources", name))
+		if err == nil {
+			return
+		}
+		if strings.HasSuffix(ref, ".") {
+			return h.openLocalFile(htmlFile, strings.TrimSuffix(ref, "."))
+		}
+	}
 
 	return
 }
@@ -137,7 +157,7 @@ func (h *HTMLToEmail) setDate(file string, doc *goquery.Document, mail *email.Em
 
 	mail.Headers.Set("Date", date)
 }
-func (h *HTMLToEmail) setAttachments(doc *goquery.Document, mail *email.Email) {
+func (h *HTMLToEmail) setAttachments(htmlFile string, doc *goquery.Document, mail *email.Email) {
 	cids := make(map[string]string)
 	doc.Find("img, link").Each(func(i int, e *goquery.Selection) {
 		var attr string
@@ -174,7 +194,7 @@ func (h *HTMLToEmail) setAttachments(doc *goquery.Document, mail *email.Email) {
 				return
 			}
 
-			cid, err := h.attachLocalFile(mail, ref)
+			cid, err := h.attachLocalFile(htmlFile, mail, ref)
 			if err != nil {
 				log.Printf("cannot attach %s: %s", ref, err)
 				return
@@ -184,6 +204,15 @@ func (h *HTMLToEmail) setAttachments(doc *goquery.Document, mail *email.Email) {
 			e.SetAttr(attr, fmt.Sprintf("cid:%s", cid))
 		}
 	})
+}
+func (_ *HTMLToEmail) cleanDoc(doc *goquery.Document) *goquery.Document {
+	// remove inoreader ads
+	doc.Find("body").Find(`div:contains("ads from inoreader")`).Closest("center").Remove()
+
+	// remove solidot.org ads
+	doc.Find("img[src='https://img.solidot.org//0/446/liiLIZF8Uh6yM.jpg']").Remove()
+
+	// replace iframe
 	doc.Find("iframe").Each(func(i int, iframe *goquery.Selection) {
 		src, _ := iframe.Attr("src")
 		if src == "" {
@@ -192,16 +221,10 @@ func (h *HTMLToEmail) setAttachments(doc *goquery.Document, mail *email.Email) {
 			iframe.ReplaceWithHtml(fmt.Sprintf(`<a href="%s">%s</a>`, src, src))
 		}
 	})
-	doc.Find("script").Each(func(i int, script *goquery.Selection) {
-		script.Remove()
-	})
-}
-func (_ *HTMLToEmail) cleanDoc(doc *goquery.Document) *goquery.Document {
-	// remove inoreader ads
-	doc.Find("body").Find(`div:contains("ads from inoreader")`).Closest("center").Remove()
-
-	// remove solidot.org ads
-	doc.Find("img[src='https://img.solidot.org//0/446/liiLIZF8Uh6yM.jpg']").Remove()
+	doc.Find("script").Remove()
+	doc.Find("button").Remove()
+	doc.Find("input").Remove()
+	doc.Find("*[contenteditable=true]").RemoveAttr("contenteditable")
 
 	return doc
 }
