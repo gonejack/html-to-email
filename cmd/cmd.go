@@ -122,13 +122,13 @@ func (h *HTMLToEmail) openLocalFile(htmlFile string, ref string) (fd *os.File, e
 
 	// compatible with evernote's exported htmls
 	{
-		prefix := strings.TrimSuffix(htmlFile, filepath.Ext(htmlFile))
-		name := filepath.Base(ref)
-		fd, err = os.Open(filepath.Join(prefix+"_files", name))
+		basename := strings.TrimSuffix(htmlFile, filepath.Ext(htmlFile))
+		filename := filepath.Base(ref)
+		fd, err = os.Open(filepath.Join(basename+"_files", filename))
 		if err == nil {
 			return
 		}
-		fd, err = os.Open(filepath.Join(prefix+".resources", name))
+		fd, err = os.Open(filepath.Join(basename+".resources", filename))
 		if err == nil {
 			return
 		}
@@ -159,7 +159,7 @@ func (h *HTMLToEmail) setDate(file string, doc *goquery.Document, mail *email.Em
 }
 func (h *HTMLToEmail) setAttachments(htmlFile string, doc *goquery.Document, mail *email.Email) {
 	cids := make(map[string]string)
-	doc.Find("img, link").Each(func(i int, e *goquery.Selection) {
+	doc.Find("img,video,link").Each(func(i int, e *goquery.Selection) {
 		var attr string
 		switch e.Get(0).Data {
 		case "link":
@@ -168,6 +168,8 @@ func (h *HTMLToEmail) setAttachments(htmlFile string, doc *goquery.Document, mai
 			attr = "src"
 			e.RemoveAttr("loading")
 			e.RemoveAttr("srcset")
+		case "video":
+			attr = "src"
 		default:
 			attr = "src"
 		}
