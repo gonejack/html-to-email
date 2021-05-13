@@ -94,8 +94,8 @@ func (h *HTMLToEmail) patchReference(ref string) (string, error) {
 	}
 	return u.String(), nil
 }
-func (h *HTMLToEmail) attachLocalFile(htmlFile string, mail *email.Email, ref string) (cid string, err error) {
-	fd, err := h.openLocalFile(htmlFile, ref)
+func (h *HTMLToEmail) attachLocalFile(file string, mail *email.Email, ref string) (cid string, err error) {
+	fd, err := h.openLocalFile(file, ref)
 	if err != nil {
 		return
 	}
