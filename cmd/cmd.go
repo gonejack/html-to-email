@@ -31,9 +31,7 @@ func (h *HTMLToEmail) Run(htmlList []string) (err error) {
 	}
 
 	for _, html := range htmlList {
-		if h.Verbose {
-			log.Printf("processing %s", html)
-		}
+
 		err = h.process(html)
 		if err != nil {
 			return fmt.Errorf("parse %s failed: %s", html, err)
@@ -43,12 +41,16 @@ func (h *HTMLToEmail) Run(htmlList []string) (err error) {
 	return
 }
 func (h *HTMLToEmail) process(html string) (err error) {
-	saving := strings.TrimSuffix(html, filepath.Ext(html)) + ".eml"
+	if h.Verbose {
+		log.Printf("processing %s", html)
+	}
 
-	if s, e := os.Stat(saving); e == nil && s.Size() > 0 {
-		log.Printf("%s skipped", html)
+	eml := strings.TrimSuffix(html, filepath.Ext(html)) + ".eml"
+	if s, e := os.Stat(eml); e == nil && s.Size() > 0 {
+		log.Printf("%s exist, skipped", eml)
 		return
 	}
+
 	data, err := ioutil.ReadFile(html)
 	if err != nil {
 		return err
@@ -79,7 +81,7 @@ func (h *HTMLToEmail) process(html string) (err error) {
 		return fmt.Errorf("cannot generate email: %w", err)
 	}
 
-	return ioutil.WriteFile(saving, content, 0766)
+	return ioutil.WriteFile(eml, content, 0766)
 }
 func (h *HTMLToEmail) patchReference(ref string) (string, error) {
 	u, err := url.Parse(ref)
