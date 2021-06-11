@@ -31,7 +31,6 @@ func (h *HTMLToEmail) Run(htmlList []string) (err error) {
 	}
 
 	for _, html := range htmlList {
-
 		err = h.process(html)
 		if err != nil {
 			return fmt.Errorf("parse %s failed: %s", html, err)
