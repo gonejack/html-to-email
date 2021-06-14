@@ -224,6 +224,7 @@ func (_ *HTMLToEmail) cleanDoc(doc *goquery.Document) *goquery.Document {
 			iframe.ReplaceWithHtml(fmt.Sprintf(`<a href="%s">%s</a>`, src, src))
 		}
 	})
+	doc.Find("link").Remove()
 	doc.Find("script").Remove()
 	doc.Find("button").Remove()
 	doc.Find("input").Remove()
