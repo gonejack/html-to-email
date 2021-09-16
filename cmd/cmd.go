@@ -209,12 +209,6 @@ func (h *HTMLToEmail) setAttachments(htmlFile string, doc *goquery.Document, mai
 	})
 }
 func (_ *HTMLToEmail) cleanDoc(doc *goquery.Document) *goquery.Document {
-	// remove inoreader ads
-	doc.Find(`div:contains("ads from inoreader")`).Closest("center").Remove()
-
-	// remove solidot.org ads
-	doc.Find("img[src='https://img.solidot.org//0/446/liiLIZF8Uh6yM.jpg']").Remove()
-
 	// replace iframe
 	doc.Find("iframe").Each(func(i int, iframe *goquery.Selection) {
 		src, _ := iframe.Attr("src")
