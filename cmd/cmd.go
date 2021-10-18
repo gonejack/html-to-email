@@ -160,7 +160,7 @@ func (h *HTMLToEmail) setDate(file string, doc *goquery.Document, mail *email.Em
 }
 func (h *HTMLToEmail) setAttachments(htmlFile string, doc *goquery.Document, mail *email.Email) {
 	cids := make(map[string]string)
-	doc.Find("img,video,link").Each(func(i int, e *goquery.Selection) {
+	doc.Find("img,video,link,source").Each(func(i int, e *goquery.Selection) {
 		var attr string
 		switch e.Get(0).Data {
 		case "link":
