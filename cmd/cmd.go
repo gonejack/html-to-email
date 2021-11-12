@@ -5,7 +5,6 @@ import (
 	"crypto/md5"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"log"
 	"net/url"
 	"os"
@@ -14,23 +13,41 @@ import (
 	"time"
 
 	"github.com/PuerkitoBio/goquery"
+	"github.com/alecthomas/kong"
 	"github.com/gabriel-vasile/mimetype"
 	"github.com/gonejack/email"
 )
 
-type HTMLToEmail struct {
-	From string
-	To   string
+type options struct {
+	From    string `short:"f" help:"Set From field."`
+	To      string `short:"t" help:"Set To field."`
+	Verbose bool   `short:"v" help:"Verbose printing."`
+	About   bool   `help:"About."`
 
-	Verbose bool
+	HTML []string `arg:"" optional:""`
 }
 
-func (h *HTMLToEmail) Run(htmlList []string) (err error) {
-	if len(htmlList) == 0 {
-		return errors.New("no HTML files given")
-	}
+type HTMLToEmail struct {
+	options
+}
 
-	for _, html := range htmlList {
+func (h *HTMLToEmail) Run() (err error) {
+	kong.Parse(&h.options,
+		kong.Name("html-to-email"),
+		kong.Description("This command line converts .html file to .eml"),
+		kong.UsageOnError(),
+	)
+	if h.About {
+		fmt.Println("Visit https://github.com/gonejack/html-to-email")
+		return
+	}
+	if len(h.HTML) == 0 || h.HTML[0] == "*.html" {
+		h.HTML, _ = filepath.Glob("*.html")
+	}
+	if len(h.HTML) == 0 {
+		return errors.New("no .html files given")
+	}
+	for _, html := range h.HTML {
 		err = h.process(html)
 		if err != nil {
 			return fmt.Errorf("parse %s failed: %s", html, err)
@@ -50,7 +67,7 @@ func (h *HTMLToEmail) process(html string) (err error) {
 		return
 	}
 
-	data, err := ioutil.ReadFile(html)
+	data, err := os.ReadFile(html)
 	if err != nil {
 		return err
 	}
@@ -80,7 +97,7 @@ func (h *HTMLToEmail) process(html string) (err error) {
 		return fmt.Errorf("cannot generate email: %w", err)
 	}
 
-	return ioutil.WriteFile(eml, content, 0766)
+	return os.WriteFile(eml, content, 0766)
 }
 func (h *HTMLToEmail) patchReference(ref string) (string, error) {
 	u, err := url.Parse(ref)
@@ -106,7 +123,7 @@ func (h *HTMLToEmail) attachLocalFile(file string, mail *email.Email, ref string
 	if err != nil {
 		return
 	}
-	cid = md5str(ref) + fmime.Extension()
+	cid = strmd5(ref) + fmime.Extension()
 	attachment, err := mail.Attach(fd, cid, fmime.String())
 	if err != nil {
 		return
@@ -227,6 +244,6 @@ func (_ *HTMLToEmail) cleanDoc(doc *goquery.Document) *goquery.Document {
 	return doc
 }
 
-func md5str(s string) string {
+func strmd5(s string) string {
 	return fmt.Sprintf("%x", md5.Sum([]byte(s)))
 }
