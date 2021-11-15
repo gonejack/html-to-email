@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"mime"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -16,6 +17,7 @@ import (
 	"github.com/alecthomas/kong"
 	"github.com/gabriel-vasile/mimetype"
 	"github.com/gonejack/email"
+	"github.com/vincent-petithory/dataurl"
 )
 
 type options struct {
@@ -53,7 +55,6 @@ func (h *HTMLToEmail) Run() (err error) {
 			return fmt.Errorf("parse %s failed: %s", html, err)
 		}
 	}
-
 	return
 }
 func (h *HTMLToEmail) process(html string) (err error) {
@@ -183,11 +184,19 @@ func (h *HTMLToEmail) setAttachments(htmlFile string, doc *goquery.Document, mai
 		case "link":
 			attr = "href"
 		case "img":
-			attr = "src"
 			e.RemoveAttr("loading")
 			e.RemoveAttr("srcset")
+			fallthrough
 		case "video":
 			attr = "src"
+			w, _ := e.Attr("width")
+			if w == "0" {
+				e.RemoveAttr("width")
+			}
+			h, _ := e.Attr("height")
+			if h == "0" {
+				e.RemoveAttr("height")
+			}
 		default:
 			attr = "src"
 		}
@@ -197,7 +206,31 @@ func (h *HTMLToEmail) setAttachments(htmlFile string, doc *goquery.Document, mai
 		case ref == "":
 			return
 		case strings.HasPrefix(ref, "data:"):
-			return
+			d, err := dataurl.DecodeString(ref)
+			if err != nil {
+				if len(ref) > 30 {
+					ref = ref[:30] + "..."
+				}
+				log.Printf("cannot decode %s", ref)
+				return
+			}
+			ct, ext := d.ContentType(), ".image"
+			switch ct {
+			case "image/jpeg":
+				ext = ".jpg"
+			default:
+				exts, _ := mime.ExtensionsByType(ct)
+				if len(exts) > 0 {
+					ext = exts[0]
+				}
+			}
+			cid := strmd5(ref) + ext
+			a, err := mail.Attach(bytes.NewReader(d.Data), cid, ct)
+			if err != nil {
+				return
+			}
+			a.HTMLRelated = true
+			e.SetAttr(attr, fmt.Sprintf("cid:%s", cid))
 		case strings.HasPrefix(ref, "http://"):
 			fallthrough
 		case strings.HasPrefix(ref, "https://"):

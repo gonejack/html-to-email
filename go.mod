@@ -7,6 +7,7 @@ require (
 	github.com/alecthomas/kong v0.2.18
 	github.com/gabriel-vasile/mimetype v1.3.1
 	github.com/gonejack/email v1.0.5
+	github.com/vincent-petithory/dataurl v1.0.0
 )
 
 require (
