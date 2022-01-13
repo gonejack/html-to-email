@@ -1,4 +1,4 @@
-package cmd
+package html2email
 
 import (
 	"bytes"
@@ -14,37 +14,19 @@ import (
 	"time"
 
 	"github.com/PuerkitoBio/goquery"
-	"github.com/alecthomas/kong"
 	"github.com/gabriel-vasile/mimetype"
 	"github.com/gonejack/email"
 	"github.com/vincent-petithory/dataurl"
 )
 
-type options struct {
-	From    string `short:"f" help:"Set From field."`
-	To      string `short:"t" help:"Set To field."`
-	Verbose bool   `short:"v" help:"Verbose printing."`
-	About   bool   `help:"About."`
-
-	HTML []string `arg:"" optional:""`
-}
-
 type HTMLToEmail struct {
-	options
+	Options
 }
 
 func (h *HTMLToEmail) Run() (err error) {
-	kong.Parse(&h.options,
-		kong.Name("html-to-email"),
-		kong.Description("This command line converts .html file to .eml"),
-		kong.UsageOnError(),
-	)
 	if h.About {
 		fmt.Println("Visit https://github.com/gonejack/html-to-email")
 		return
-	}
-	if len(h.HTML) == 0 || h.HTML[0] == "*.html" {
-		h.HTML, _ = filepath.Glob("*.html")
 	}
 	if len(h.HTML) == 0 {
 		return errors.New("no .html files given")
@@ -79,13 +61,11 @@ func (h *HTMLToEmail) process(html string) (err error) {
 	doc = h.cleanDoc(doc)
 
 	mail := email.NewEmail()
-	{
-		mail.From = h.From
-		mail.To = []string{h.To}
-		mail.Subject = doc.Find("title").Text()
-		h.setDate(html, doc, mail)
-		h.setAttachments(html, doc, mail)
-	}
+	mail.From = h.From
+	mail.To = []string{h.To}
+	mail.Subject = doc.Find("title").Text()
+	h.setDate(html, doc, mail)
+	h.setAttachments(html, doc, mail)
 
 	htm, err := doc.Html()
 	if err != nil {

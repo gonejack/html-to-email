@@ -3,12 +3,15 @@ package main
 import (
 	"log"
 
-	"github.com/gonejack/html-to-email/cmd"
+	"github.com/gonejack/html-to-email/html2email"
 )
 
 func main() {
-	var c cmd.HTMLToEmail
-	if e := c.Run(); e != nil {
-		log.Fatal(e)
+	cmd := html2email.HTMLToEmail{
+		Options: html2email.MustParseOption(),
+	}
+	err := cmd.Run()
+	if err != nil {
+		log.Fatal(err)
 	}
 }
